@@ -1,0 +1,630 @@
+---
+title: "Day 1 - Building a Performance Measure Case"
+format: html
+---
+
+# Introduction
+
+Today's complex business environment demands tools that offer both versatility and precision. In this session, we'll explore three vital financial tasks using the R programming environment:
+
+1.  **Cost Allocation:** Get a granular understanding of how costs disperse across products, emphasizing the allocation of indirect costs.
+
+2.  **Contribution Margin Analysis:** Examine the profitability of individual products, distinguishing which products significantly impact the bottom line.
+
+3.  **Monte-Carlo Analysis:** Navigate business uncertainties with this statistical technique, utilizing random sampling to achieve numerical results for multifaceted problems.
+
+But why opt for R over mainstream tools like Excel?
+
+**The Case for R:**
+
+-   **Reproducibility:** With R scripts, analyses can be reproduced and validated effortlessly. This is invaluable for audits or simply revisiting your work months or years later.
+
+-   **Handling Large Data sets:** R is equipped to manage extensive datasets, something Excel struggles with beyond a point.
+
+-   **Flexibility:** R's vast array of packages and its ability to integrate with other languages and tools make it highly adaptable.
+
+-   **Advanced Statistical Analysis:** While Excel offers basic statistical tools, R provides a comprehensive suite for sophisticated analyses.
+
+-   **Cost-Effective:** Being open-source, R is freely available, ensuring businesses don't incur additional software costs.
+
+By the session's end, you'll appreciate not just the theoretical aspects of these techniques but also the practical advantages of implementing them in an open-source environment like R.
+
+Let's get started!
+
+# Loading Libraries
+
+```{r Loading Libraries}
+#| warning: false
+#| message: false
+library(tidyverse)
+library(openxlsx)
+library(janitor)
+library(scales)
+library(tictoc)
+library(furrr)
+library(ggthemes)
+library(gt)
+library(fst)
+library(future)
+
+options(scipen = 999)
+source("additional_functions.R")
+sc <- scales::comma
+```
+
+# The Use Case
+
+![Cost Overview](/img/CostOverview.png)
+
+![Cost Allocation](/img/CostAllocation.png)
+
+# Cost Allocation
+
+## Task 1: Allocate Indirect Cost
+
+We know that we have to allocate indirect costs onto the individual product. Let's tale Material Cost as an example:
+
+-   Direct Cost Elite (DC~1~): 30,000 €
+
+-   Direct Cost Premium (DC~2~): 70,000 €
+
+-   Indirect Cost (IC): 40,000
+
+The general Formula for allocating indirect Cost is:
+
+$$
+IC_{c,i} = IC_{c}*\frac{DC_{c,i}}{\sum_{i} DC_i}
+$$
+
+### Task 1A: Material Cost Allocation Preparation
+
+Use the given data to calculate the cost allocation:
+
+```{r }
+mat_dic <- c("Elite" = 30000, "Premium" = 70000)
+mat_inc <- 40000
+```
+
+**ToDo: Calculate the correct value for mat_ac**
+
+```{r }
+mat_alc <- NULL # YOUR CALCULATION HERE
+```
+
+Check Your Result
+
+```{r }
+check_named_vector(mat_alc, c("Elite" = 12000, "Premium" = 28000))
+```
+
+### Task 1B: Write a general cost allocation formula
+
+Ensure the function only accepts named numeric vectors.
+
+Name conventions: `.m_dic` for the direct cost vector, and `.s_inc` for the indirect cost (**m\_** stands for multiple values and **s\_** stands for single values).
+
+```{r }
+allocate_indirect_cost <- function(.m_dic, .s_inc) {
+  # YOUR CODE HERE
+}
+```
+
+
+```{r }
+mat_alc <- allocate_indirect_cost(mat_dic, mat_inc)
+```
+
+Check Your Result
+
+```{r Task 1B: Write a general cost allocation formula (2)}
+check_named_vector(mat_alc, c("Elite" = 12000, "Premium" = 28000))
+```
+
+## Task 2: Summing Cost Vectors
+
+The goal here is to devise a formula that can take multiple named numeric vectors as its input and return a new vector whose elements are the piece-wise sum of the elements in the input vectors. This formula will allow you to combine, for example, direct costs and allocated indirect costs to derive the total costs.
+
+### Task 2A: Cost Summation Formula
+
+You aim to create a function, **`sum_cost`**, that can receive any number of named numeric vectors and return their piece-wise sum.
+
+The two common methods in R to handle an arbitrary number of function inputs are:
+
+1.  **Using a list**: Each vector is considered an item in the list. This method is more structured but requires each vector to be manually added to the list.
+
+2.  **Using the `...` operator**: This is a placeholder for any number of arguments that can be passed to a function. It provides flexibility because you don't have to specify in advance how many arguments you're going to use. Later, inside the function, you can convert **`...`** to a list using the **`list(...)`** function, allowing you to manipulate the arguments as a single list object.
+
+Given these methods, here's how you can create the **`sum_cost`** function:
+
+```{r }
+sum_cost <- function(...) {
+  # YOUR CODE HERE
+}
+```
+
+
+```{r }
+mat_tot <- sum_cost(mat_dic, mat_inc )
+```
+
+Check Your Result
+
+```{r }
+check_named_vector(mat_tot, c("Elite" = 70000, "Premium" = 110000))
+```
+
+## Task 3: Using Real Data for Cost Allocation
+
+To understand and compute the cost allocation using the lecture data, we'll extract it from an Excel sheet and perform specific operations based on the data's structure.
+
+```{r Task 3: Using Real Data for Cost Allocation}
+tab_cost <- tibble::as_tibble(
+  openxlsx::read.xlsx("../Business Case.xlsx", "Cost1")
+  ) %>%
+  janitor::clean_names()
+tab_cost
+```
+
+Here, we use the **`openxlsx`** package to read the specific sheet "Cost1" from the Excel file. This data is then converted into a **`tibble`** (a modern form of R's data frame) for easier manipulation. The **`clean_names()`** function from the **`janitor`** package is used to ensure our column names are consistent and easy to work with.
+
+### Task 3A: Writing a formula to read product cost
+
+**Objective**: For this task, your goal is to write a function named **`filter_cost_input`** that filters the data for a specific cost type (e.g., Direct or Indirect) and a specific department (e.g., Material, Manufacturing). This function should return a named numeric vector where names are products, and values are the associated costs.
+
+**YOUR FUNCTION**:
+
+```{r Task 3A: Writing a formula to read product cost (1)}
+filter_cost_input <- function(.tab, .type, .dep) {
+  # YOUR CODE HERE
+}
+```
+
+**Instructions**:
+
+1.  Use the **`filter()`** function from the **`dplyr`** package to filter the table based on the given cost type and department.
+
+2.  After filtering, arrange the results based on the product name. This will ensure consistency in later steps.
+
+3.  Now, you'll need to generate a named vector from the filtered results. This can be achieved using the **`mutate()`** function to set the names of the **`amount`** column to be the respective product names.
+
+4.  Finally, extract just the named **`amount`** vector using the **`pull()`** function.
+
+Check Your Result
+```{r}
+mat_dic <- filter_cost_input(tab_cost, "Direct", "Material")
+mat_dic
+```
+
+```{r}
+check_named_vector(mat_dic, c("Elite" = 30000, "Premium" = 70000))
+```
+
+### Task 3B: Writing formulas to get Cost Allocation List
+
+**Objective**: The aim of this exercise is to calculate different types of costs, both direct and indirect, and allocate them properly across products.
+
+**Step-by-Step Guide:**
+
+1.  **Understand the Structure**: The **`get_cost_allocations`** function will compute various costs and store them in a list. This list will help organize and categorize costs according to their type and department.
+
+2.  **Material Costs**:
+
+    -   **Direct Material Cost (`mat_dic`)**: This is already computed for you using the **`filter_cost_input`** function. It represents the costs directly linked to materials for each product.
+
+    -   **Indirect Material Cost (`mat_inc`)**: These costs are associated with materials but can't be linked to a specific product. Instead, they're spread out across all products.
+
+    -   **Allocated Material Cost (`mat_alc`)**: Here, you need to allocate the indirect material cost across all products based on some allocation rule (like proportion of direct costs or units produced). Use the **`allocate_indirect_cost`** function with **`mat_dic`** and **`mat_inc`** as arguments.
+
+    -   **Total Material Cost (`mat_tot`)**: This is the sum of direct material cost and allocated indirect material cost. Use the **`sum_cost`** function.
+
+3.  **Manufacturing Costs**:
+
+    -   **Direct Manufacturing Cost (`man_dic`)** and **Indirect Manufacturing Cost (`man_inc`)**: These are computed in a manner similar to material costs.
+
+    -   **Allocated Manufacturing Cost (`man_alc`)**: Allocate the indirect manufacturing cost across products. Consider factors like machine hours or labor hours if relevant.
+
+    -   **Total Manufacturing Cost (`man_tot`)**: Sum up the direct and allocated indirect manufacturing costs.
+
+4.  **Administrative Costs**:
+
+    -   **Indirect Admin Cost (`adm_inc`)**: As administrative costs are often indirect, allocate these across products based on a suitable allocation base (e.g., total costs or sales).
+
+    -   **Allocated Admin Cost (`adm_alc`)**: Spread the indirect admin cost using an appropriate rule.
+
+5.  **Marketing Costs**:
+
+    -   **Indirect Marketing Cost (`mar_inc`)**: These are the costs associated with marketing activities that can't be directly linked to a product.
+
+    -   **Allocated Marketing Cost (`mar_alc`)**: Distribute the marketing costs among products.
+
+6.  **Total Product Cost (`prd_tot`)**: This is a summation of all costs associated with a product - material, manufacturing, administrative, and marketing. Ensure all costs are considered, both direct and allocated indirect.
+
+Use the Functions `allocate_indirect_cost()` and `sum_cost()` to complete the `get_cost_allocations()` functions
+
+**YOUR FUNCTION**:
+
+```{r}
+get_cost_allocations <- function(.tab_cost) {
+  # Create an empty list to store values
+  lst_ <- list()
+
+  # Material Cost
+  lst_[["mat_dic"]] <- filter_cost_input(.tab_cost, "Direct", "Material")   # Direct Material Cost
+  lst_[["mat_inc"]] <- filter_cost_input(.tab_cost, "Indirect", "Material") # Indirect Material Cost
+  lst_[["mat_alc"]] <- NULL # YOUR CODE HERE                                # Allocated Material Cost
+  lst_[["mat_tot"]] <- NULL # YOUR CODE HERE                                # Total Material Cost
+
+  # Manufacturing Cost
+  lst_[["man_dic"]] <- filter_cost_input(.tab_cost, "Direct", "Manufacturing")   # Direct Manufacturing Cost
+  lst_[["man_inc"]] <- filter_cost_input(.tab_cost, "Indirect", "Manufacturing") # Indirect Manufacturing Cost
+  lst_[["man_alc"]] <- NULL # YOUR CODE HERE                                     # Allocated Manufacturing Cost
+  lst_[["man_tot"]] <- NULL # YOUR CODE HERE                                     # Total Manufacturing Cost
+
+  # Administrative Cost
+  lst_[["adm_inc"]] <- filter_cost_input(.tab_cost, "Indirect", "Admin") # Indirect Admin Cost
+  lst_[["adm_alc"]] <- NULL # YOUR CODE HERE                             # Allocated Admin Cost
+
+  # Marketing Cost
+  lst_[["mar_inc"]] <- filter_cost_input(.tab_cost, "Indirect", "Marketing") # Indirect Marketing Cost
+  lst_[["mar_alc"]] <- NULL # YOUR CODE HERE                                 # Allocated Marketing Cost
+
+  # Total Product Cost
+  lst_[["prd_tot"]] <- NULL # YOUR CODE HERE
+
+  return(lst_)
+}
+```
+
+
+**Function Breakdown:**
+
+1.  **Function Name**: **`get_cost_allocation_skeleton`**
+
+    -   This name suggests that we are fetching or creating a foundational structure for our cost allocations.
+
+2.  **The `tibble::tribble` Function**:
+
+    -   This function is from the **`tibble`** package and helps in creating a small table (or tibble) in a readable form.
+
+    -   The **`~sign`** and **`~var`** are column names in this table. Each subsequent line in the function provides a row of data for these columns.
+
+**Usage:**
+
+When you call the function, it returns the described tibble structure. This "skeleton" serves as a roadmap for allocating and tallying up various costs. As you proceed with the exercise, you will populate this table with actual monetary values corresponding to each cost type. This visual representation helps in comprehending the flow and accumulation of different cost components.
+
+```{r}
+get_cost_allocation_skeleton <- function() {
+  tibble::tribble(
+    ~sign, ~var,
+    " ", "Direct Material Costs",
+    "+", "Indirect Material Costs",
+    "=", "Material Costs",
+    "+", "Direct Manufacturing Costs",
+    "+", "Indirect Manufacturing Costs",
+    "=", "Manufacturing Costs",
+    "+", "Indirect Administration Costs",
+    "+", "Indirect Marketing Costs",
+    "=", "Total Product Costs"
+  )
+}
+
+```
+
+```{r}
+get_cost_allocation_skeleton()
+```
+
+### Task 3C: Display Cost Allocation Table
+
+In this task, your goal is to use the pre-defined functions **`get_cost_allocation_list()`** and **`get_cost_allocation_skeleton()`** to construct the final Cost Allocation Table.
+
+The Cost Allocation Table is crucial because it breaks down both direct and indirect costs, allowing a company to understand its cost structure better. By the end of this task, you should be able to represent all these costs in a well-organized table.
+
+**Instructions:**
+
+1.  **Understanding the Skeleton**:
+
+    -   Before jumping into building the entire table, let's familiarize ourselves with the **`get_cost_allocation_skeleton()`** function. This function provides a structured, step-by-step representation of how costs are compiled. Each row of the output represents either an individual cost or a summation.
+
+    -   Try running the function by itself to see its output!
+
+2.  **Fetching the Costs**:
+
+    -   The **`get_cost_allocation_list()`** function is designed to extract various types of costs from the dataset. It returns a list containing costs categorized by their type (direct, indirect) and nature (material, manufacturing, etc.).
+
+    -   For the purpose of this task, run the function with your dataset and examine its output. Familiarize yourself with the different types of costs it provides.
+
+3.  **Building the Table**:
+
+    -   Your main challenge is to construct the Cost Allocation Table. This will involve integrating the structure provided by the skeleton with the actual cost data.
+
+    -   Think of how you can combine the structured format of the skeleton with the actual cost numbers. You'll need to fetch each relevant cost from the list and place it in the correct position within the table.
+
+    -   Note: The skeleton uses signs like "+" and "=" to signify addition and summation. This can guide you on where and how to place and calculate costs.
+
+4.  **Steps to Consider for the Function**:
+
+    -   Start by fetching the costs using **`get_cost_allocation_list()`**.
+
+    -   Use the output of **`get_cost_allocation_skeleton()`** as your foundational table.
+
+    -   For each line in the skeleton, fetch the corresponding cost from your list and append it as a new column to the table.
+
+    -   Once you've placed all the individual costs, think about the rows that require summation (those with "="). Calculate these using the appropriate rows.
+
+    -   Continue this process until you've constructed the entire table.
+
+    -   Add a Total Column to the Table that shows the total cost over all Products
+
+5.  **Testing**:
+
+    -   Once you've written your function, test it with the given data. Your output should align with the structure of the skeleton and display all the relevant costs.
+
+**Tips:**
+
+-   Remember, you're not starting from scratch! You have a structured format and categorized data. It's all about bringing them together in the right order.
+
+-   The use of functions from packages like **`dplyr`** and **`purrr`** can significantly simplify data manipulation and transformation. If you're familiar with these, consider how they can assist in your task.
+
+```{r}
+get_cost_allocation_table <- function(.tab_cost) {
+  # YOUR CODE HERE
+}
+```
+
+```{r}
+get_cost_allocation_table(.tab_cost = tab_cost)
+```
+
+```{r}
+format_table(get_cost_allocation_table(tab_cost))
+```
+
+# Contribution Margin
+
+Having the cost allocation ready, we no focus on performance measures, namely the contribution margin. Looking at the Contribution margin table we see that we now need another function, namely where we have one positive input value (e.g. revenue) and subtract a cost element (e.g. Variable Cost)
+
+```{r}
+tab_revenue <- tibble::as_tibble(
+  openxlsx::read.xlsx("../Business Case.xlsx", "Revenue1")
+  ) %>%
+  janitor::clean_names()
+tab_revenue
+```
+
+## Task 4A: Subtracting Cost Vectors for Revenue Vectors
+
+You aim to create a function, **`substract_cost`**, that can receive any number of named numeric vectors and subtract values from the first value.
+
+The two common methods in R to handle an arbitrary number of function inputs are:
+
+1.  **Using a list**: Each vector is considered an item in the list. This method is more structured but requires each vector to be manually added to the list.
+
+2.  **Using the `...` operator**: This is a placeholder for any number of arguments that can be passed to a function. It provides flexibility because you don't have to specify in advance how many arguments you're going to use. Later, inside the function, you can convert **`...`** to a list using the **`list(...)`** function, allowing you to manipulate the arguments as a single list object.
+
+Given these methods, here's how you can create the **`substract_cost`** function:
+
+```{r}
+subtract_cost <- function(...) {
+  # YOUR CODE HERE
+}
+```
+
+Check Your Result
+
+```{r}
+revenues <- c("Elite" = 100000, "Premium" = 250000)
+var_cost <- c("Elite" = 70000, "Premium" = 120000)
+
+cm1 <- subtract_cost(revenues, var_cost)
+```
+
+```{r}
+check_named_vector(cm1, c("Elite" = 30000, "Premium" = 130000))
+```
+
+## Task 4B: Writing a formula to read product revenues
+
+**Objective**: For this task, your goal is to write a function named **`filter_revenue_input`** This function should return a named numeric vector where names are products, and values are the associated costs.
+
+**YOUR FUNCTION**:
+
+```{r}
+filter_revenue_input <- function(.tab, .type, .dep) {
+  # YOUR CODE HERE
+}
+```
+
+```{r}
+filter_revenue_input(tab_revenue)
+```
+
+## Task 4C: Writing formulas to get Contribution Margin List
+
+Remember Task 3B. Use the Functions `subtract_cost()` and `sum_cost()` to complete the `get_cost_allocations_and_list()` function.
+
+```{r}
+get_cost_allocation_and_cm_list <- function(.tab_cost, .tab_revenue) {
+  lst_cost_ <- get_cost_allocation_list(.tab_cost) # The Cost Allocation List
+  lst_cm_   <- list() # A new List for Contribution Margin
+
+  lst_cm_[["revenues"]] <- filter_revenue_input(.tab_revenue) # Revenues
+  lst_cm_[["var_cost"]] <- NULL # YOUR CODE HERE    
+  lst_cm_[["cm1"]]      <- NULL # YOUR CODE HERE    
+  lst_cm_[["fix_cost"]] <- NULL # YOUR CODE HERE    
+  lst_cm_[["cm2"]]      <- NULL # YOUR CODE HERE    
+  
+  return(c(lst_cost_, lst_cm_)) # Return the combined list
+}
+```
+
+## Task 4D: Display Contribution Margin Table
+
+Remember Task 3C.
+
+```{r}
+get_contribution_margin_skeleton <- function() {
+  tibble::tribble(
+    ~sign, ~var,
+    " ", "Revenue",
+    "-", "Variable Cost",
+    "=", "Contribution Margin 1",
+    "-", "Product Fix Cost",
+    "=", "Contribution Margin 2",
+  )
+}
+```
+
+```{r}
+make_cm_table <- function(.tab_cost, .tab_revenue) {
+  # YOUR CODE HERE
+}
+```
+
+```{r}
+format_table(make_cm_table(tab_cost, tab_revenue))
+```
+
+# Monte Carlo Analysis
+
+**Introduction:**
+
+Monte Carlo Analysis is a powerful statistical technique that allows you to account for uncertainty in your decision-making processes. It allows you to model possible outcomes by randomizing specific inputs according to predefined distributions. This approach is named after the city of Monte Carlo, known for its casinos, suggesting the element of chance or randomness.
+
+In our context, we'll be performing a Monte Carlo Analysis to simulate the effects of various inputs on our outcome variable: the contribution margin. This is a critical tool in finance and business strategy, allowing for a deeper understanding of potential variability in key metrics.
+
+**Description:**
+
+1.  **Randomizing Input**:
+
+    -   The **`randomize_input`** function allows us to randomize a given input based on either a normal or uniform distribution. The randomness is controlled by the seed, ensuring reproducibility.
+
+        -   **`.distr`**: The distribution type. Can be either "normal" or "uniform".
+
+        -   **`.mean`**: The central tendency of your distribution.
+
+        -   **`.bound`**: For the normal distribution, it's the standard deviation. For the uniform distribution, it's the range around the mean.
+
+        -   **`.seed`**: Seed for reproducibility.
+
+2.  **Randomizing Input Table**:
+
+    -   The **`randomize_input_table`** function is an extension of the **`randomize_input`** function but applies the randomness over an entire table.
+
+        -   **`.tab`**: The table you want to randomize.
+
+        -   **`.seed`**: Seed for reproducibility.
+
+3.  **Test Random Functions**:
+
+    -   In the given scripts, there's a small test showing how to randomize inputs for both single values and entire tables.
+
+4.  **Contribution Margin Table**:
+
+    -   The **`make_cm_table`** function computes the contribution margin table by randomizing the cost and revenue tables.
+
+5.  **Running Monte Carlo Simulation**:
+
+    -   Monte Carlo Simulations involve repeating the randomization process multiple times and observing the resulting outcomes.
+
+        -   We use the **`purrr::map`** function to run the **`get_cost_allocation_and_cm`** function multiple times.
+
+        -   The simulation is repeated 100 times, with a different seed each time to ensure variability.
+
+        -   We use the **`tictoc`** package to measure how long the entire simulation process takes. This can be useful to understand the computational complexity.
+
+6.  **Parallel Processing**:
+
+    -   To speed up the Monte Carlo simulations, we leverage the power of parallel processing. This means that multiple computations run simultaneously.
+
+        -   **`future::availableCores()`**: Determines the number of available processing cores.
+
+        -   **`furrr::future_map`**: A function from the **`furrr`** package that allows for parallel processing. This drastically reduces the time needed for simulations when you have multiple cores available.
+
+7.  **Visualization**:
+
+    -   Once the simulation is done, it's time to visualize the outcomes.
+
+        -   The **`display_histogram`** function is used to provide a histogram of the contribution margin's possible values. This gives a visual representation of the most likely values, the variability, and the possible range of the contribution margin.
+
+**Key Takeaways:**
+
+-   Monte Carlo Analysis helps in understanding the potential range and variability of financial outcomes.
+
+-   It emphasizes not only focusing on the most likely outcome but also considering a range of possible outcomes.
+
+-   Parallel processing can speed up the process significantly, especially when dealing with a large number of simulations.
+
+-   Visualization tools, such as histograms, offer a succinct way to interpret the results of Monte Carlo Analysis.
+
+Remember, while Monte Carlo Analysis provides a range of outcomes, it doesn't predict the future. Instead, it offers a probabilistic view of potential outcomes based on the variability of the inputs. It's an essential tool for risk analysis, helping businesses prepare for a range of scenarios.
+
+```{r}
+randomize_input <- function(.distr, .mean, .bound, .seed) {
+  set.seed(.seed)
+  if (.distr == "normal") {
+    rnorm(1, .mean, .bound)
+  } else if (.distr == "uniform") {
+    runif(1, .mean - .bound, .mean + .bound)
+  } else {
+    stop("Wrong Distribution Specified")
+  }
+}
+
+randomize_input_table <- function(.tab, .seed) {
+  .tab %>%
+    dplyr::mutate(
+      amount = purrr::pmap_dbl(
+        .l = list(distr, amount, range_std), 
+        .f = ~ randomize_input(..1, ..2, ..3, .seed)
+        )) %>%
+    dplyr::mutate(amount = purrr::set_names(amount, product))
+}
+
+
+
+randomize_input(tab_cost$distr[1], tab_cost$amount[1], tab_cost$range_std[1], 1)
+randomize_input_table(.tab = tab_revenue, 2)
+```
+
+```{r}
+make_cm_table(
+  .tab_cost = randomize_input_table(tab_cost, 2), 
+  .tab_revenue = randomize_input_table(tab_revenue, 2)
+  ) %>%  format_table()
+```
+
+```{r}
+tictoc::tic()
+lst_monte_carlo <- purrr::map(
+  .x = 1:100,
+  .f = ~ get_cost_allocation_and_cm_list(
+    .tab_cost = randomize_input_table(tab_cost, .x),
+    .tab_revenue = randomize_input_table(tab_revenue, .x)
+  ), .progress = TRUE
+)
+tictoc::toc()
+```
+
+```{r}
+cores <- min(20, future::availableCores() - 1)
+tictoc::tic()
+future::plan("multisession", workers = cores)
+lst_monte_carlo <- furrr::future_map(
+  .x = 1:10000,
+  .f = ~ get_cost_allocation_and_cm_list(
+    .tab_cost = randomize_input_table(tab_cost, .x),
+    .tab_revenue = randomize_input_table(tab_revenue, .x)
+  ),
+  .progress = TRUE,
+  .options = furrr::furrr_options(seed = TRUE)
+)
+future::plan("default")
+tictoc::toc()
+```
+
+```{r}
+lst_monte_carlo_transposed <- purrr::transpose(lst_monte_carlo)
+
+display_histogram(.lst = lst_monte_carlo_transposed$cm2)
+```

@@ -1,0 +1,543 @@
+---
+title: "Day 2 - Web Scraping"
+format: html
+---
+
+# Introduction
+
+Web scraping is a technique used to extract data from websites and organize it into a structured format for further analysis or use. It is an essential tool for data scientists, researchers, and businesses that rely on data from the web. There are two main approaches to web scraping: with and without an Application Programming Interface (API)
+
+**Static Websites vs. Dynamic Websites**
+
+Before diving into web scraping, it's important to understand the difference between static and dynamic websites. Static websites are traditional websites that store all their content in an HTML document and present it when a request is made. The content of a static website is fixed and does not change unless the website is updated. On the other hand, dynamic websites use JavaScript to generate content on the fly, making them more interactive and responsive. This distinction is crucial because the approach to web scraping may differ depending on whether the website is static or dynamic.
+
+**Web Scraping without API**
+
+Web scraping without an API involves directly accessing and extracting data from the HTML code of a website. This approach is suitable for static websites, where the content is fixed and can be accessed without any additional processing. Web scraping tools, such as web scrapers, are used to automate the data extraction process, making it faster and more efficient than manual copy-pasting.
+
+**Web Scraping with API**
+
+Web scraping with an API involves using a set of definitions and communication protocols that connect a computer to a web server, allowing the user to access and extract data from a website. APIs provide direct access to specific data, often in a structured format like XML or JSON, making it easier to process and analyze. However, API access may be limited or costly, and not all websites offer APIs for data extraction.In summary, web scraping is a powerful technique for extracting data from websites, with different approaches depending on whether the website is static or dynamic and whether an API is available. As an empirical accounting professor, understanding these concepts will help you teach your students how to effectively scrape data from various websites for their research and analysis.
+
+# Webscraping without API
+
+In this section we will download information and documents from [**https://www.annualreports.com**](https://www.annualreports.com/). Getting data from this website is exemplary for getting information from the web, where we don't have an API (Application Programming Interface) access.
+
+## Loading Libraries
+
+```{r Loading Libraries}
+library(tidyverse)
+library(rvest)
+library(xml2)
+library(robotstxt)
+```
+
+## Task 1: Understanding the Website
+
+**Objective**: Before we start scraping a website, it's crucial to understand its structure and any rules or restrictions it might have for web scrapers. This task will guide you through the process of examining the website and its **`robots.txt`** file.
+
+### Step 1: Visit the Website
+
+Open your web browser and navigate to [**https://www.annualreports.com**](https://www.annualreports.com/). Familiarize yourself with its layout, content, and navigation. This will give you a visual understanding of where the data you want to scrape is located.
+
+![AnnualReport.com Startpage](/img/AnnualReportStartPage.png)
+
+### Step 2: Check the **`robots.txt`** File
+
+Every website may have a **`robots.txt`** file. This file provides rules about which parts of the website can be accessed and scraped by web robots. It's essential to respect these rules to avoid any legal issues or getting banned from accessing the website.
+
+In the script, the following code checks the **`robots.txt`** file of the website:
+
+```{r}
+robot_ <- robotstxt::robotstxt("https://www.annualreports.com")
+robot_$crawl_delay
+```
+
+**Explanation**:
+
+-   The **`robotstxt::robotstxt()`** function fetches the **`robots.txt`** file from the website.
+
+-   **`robot_$crawl_delay`** checks if there's a specified delay between requests. This delay is recommended to avoid overloading the server with rapid, consecutive requests.
+
+### Step 3: Analyze the Results
+
+If the **`crawl_delay`** value is provided, it's a good practice to incorporate this delay in your scraping script. This ensures you're sending requests at a rate the website server is comfortable with (since it is very long 10s, we will reduce this time for this class a bit).
+
+## Task 2: Scrape a list of all companies on annualreport.com
+
+**Objective**: After understanding the basics of the website in Task 1, the next step is to extract a list of companies from the website. This task will guide you through creating a function to scrape company details from **`annualreport.com`**.
+
+### Step 1: Identify the Data
+
+Before writing the function, visit [**https://www.annualreports.com**](https://www.annualreports.com/) and identify where the company details are located. Notice the structure and patterns of the data, such as company names, links, industry names, and sector names.
+
+### Step 2: Write the `get_companies` Function
+
+Your task is to write a function named **`get_companies`** that will retrieve the company details from the website.
+
+**Input**:
+
+-   **`.n`**: A numeric value indicating the maximum number of companies to retrieve. Default is **`Inf`** (meaning it will try to retrieve all companies).
+
+**Output**: A dataframe with the following columns:
+
+-   **`company_name`**: The name of the company.
+
+-   **`company_link`**: The link to the company's page on **`annualreport.com`**.
+
+-   **`industry_name`**: The industry in which the company operates.
+
+-   **`sector_name`**: The sector in which the company operates.
+
+```{r}
+get_companies <- function(.progress = TRUE, .n = Inf) {
+  # YOUR CODE HERE
+}
+```
+
+
+### Step 3: Test the Function
+
+After writing the function, test it by retrieving a limited number of companies to ensure it works correctly. For instance, you can retrieve the details of the first 100 companies using:
+
+```{r}
+tab_companies <- get_companies(.n = 100)
+tab_companies
+```
+
+### Step 4: Review the Results
+
+Examine the **`tab_companies`** dataframe to ensure the data has been scraped correctly. Check if the company names, links, industry names, and sector names are correctly populated.
+
+## Download Raw HTMLs
+
+### Introduction
+
+When web scraping, it's often beneficial to download and store the raw HTML content of the web pages locally. This approach has several advantages:
+
+1.  **Reduced Server Load**: By saving the HTML locally, you avoid sending repeated requests to the website, which can overload their server or get your IP address banned.
+
+2.  **Offline Access**: Once downloaded, you can process the data without an active internet connection.
+
+3.  **Consistency**: The content of websites can change over time. By saving the HTML, you ensure you're always working with the same version of the data.
+
+### Functions
+
+#### 1. `save_raw_htmls()`
+
+**Purpose**: This function downloads and saves the HTML content of a specified webpage to a local directory.
+
+**Parameters**:
+
+-   **`.url`**: The URL of the webpage you want to download.
+
+-   **`.dir`**: The directory where you want to save the downloaded HTML.
+
+-   **`.format`**: The format in which to save the HTML. It can be either **`.fst`** (a dataframe format) or **`.html`** (standard HTML format). The **`.fst`** format can be advantageous because it allows for faster read/write operations and can store data in a more compressed form.
+
+-   **`.wait`**: The time (in seconds) to wait between requests. This is to ensure you're not sending requests too quickly, which could be seen as a potential attack on the server.
+
+**Output**: The function saves the HTML content to the specified directory and also creates a log file. This log file tracks details about the download, such as any errors encountered, the time taken, etc.
+
+```{r}
+save_raw_htmls <- function(.url, .dir, .format = c(".fst", ".html"), .wait = 1) {
+  format_ <- match.arg(.format, c(".fst", ".html"))
+  id_ <- basename(.url)
+
+  dir_ <- fs::dir_create(file.path(.dir, gsub("\\.", "", format_)))
+  fil_ <- file.path(dir_, paste0(id_, format_))
+
+  if (file.exists(fil_)) {
+    return(NULL)
+  }
+
+  tab_log_ <- tibble::tibble(
+    company_id = id_,
+    company_link = .url,
+    format = .format,
+    path = fil_,
+    err = FALSE,
+    err_msg = NA_character_,
+    start_time = NA_real_,
+    time = NA_real_
+  )
+
+  tryCatch(
+    {
+      start_time_ <- Sys.time()
+      html_ <- rvest::read_html(.url)
+      end_time_ <- Sys.time()
+      Sys.sleep(.wait)
+      tab_log_ <- tab_log_ %>%
+        dplyr::mutate(
+          start_time = start_time_,
+          time = difftime(end_time_, start_time_, units = "secs")
+        )
+    },
+    error = function(e) {
+      tab_log_ <- dplyr::mutate(tab_log_, err = TRUE, err_msg = e$message)
+      return(tab_log_)
+    }
+  )
+
+  if (format_ == ".fst") {
+    fst::write_fst(tibble::tibble(company_id = id_, html = as.character(html_)), fil_, 100)
+  } else {
+    write(as.character(html_), fil_)
+  }
+
+  if (!file.exists(file.path(.dir, "log.csv"))) {
+    readr::write_delim(tab_log_, file.path(.dir, "log.csv"), "|", na = "")
+  } else {
+    readr::write_delim(tab_log_, file.path(.dir, "log.csv"), "|", na = "", append = TRUE)
+  }
+}
+```
+
+#### 2. `read_raw_html()`
+
+**Purpose**: This function reads the locally stored HTML content and returns it as a node object, which can be further processed using functions from the **`rvest`** package.
+
+**Parameters**:
+
+-   **`.path`**: The path to the locally stored HTML file.
+
+-   **`.browse`**: A logical value. If set to **`TRUE`**, the function will also open the HTML in your default web browser. This can be useful for visually inspecting the content.
+
+**Output**: A node object containing the HTML content, which can be further processed or parsed.
+
+```{r}
+read_raw_html <- function(.path, .browse = FALSE) {
+  if (tools::file_ext(.path) == "fst") {
+    html_ <- rvest::read_html(fst::read_fst(.path, "html")[["html"]])
+  } else {
+    html_ <- rvest::read_html(.url)
+  }
+
+  if (.browse) {
+    temp_file_ <- tempfile(fileext = ".html")
+    write(as.character(html_), temp_file_)
+    browseURL(temp_file_)
+  }
+
+  return(html_)
+}
+
+
+```
+
+### Usage Tips
+
+1.  **Respect `robots.txt`**: Before using the **`save_raw_htmls()`** function, ensure you've checked the website's **`robots.txt`** file to ensure you're allowed to scrape it.
+
+2.  **Space Out Requests**: Use the **`.wait`** parameter in **`save_raw_htmls()`** to ensure you're not sending requests too quickly.
+
+3.  **Inspect Locally Saved HTML**: Use the **`.browse`** parameter in **`read_raw_html()`** to open the saved HTML in your browser. This can help you visually inspect the content and ensure it was saved correctly.
+
+Remember, web scraping requires a balance between gathering the data you need and respecting the website's server and terms of use. Always scrape responsibly!
+
+### Save HTMLs
+
+```{r}
+purrr::walk(tab_companies$company_link, ~ save_raw_htmls(.x, "day2/raw_html", ".fst"), .progress = TRUE)
+# purrr::walk(tab_companies$company_link, ~ save_raw_htmls(.x, "day2/raw_html", ".html"), .progress = TRUE)
+```
+
+### Read the log file
+
+```{r}
+#| message: false
+#| warning: false
+tab_log_companies <- readr::read_delim(
+  file = "day2/raw_html/log.csv",
+  delim = "|"
+) %>%
+  dplyr::filter(format == ".fst")
+tab_log_companies
+```
+
+
+```{r}
+read_raw_html(tab_log_companies$path[1], TRUE)
+```
+
+## Task 3: Scrape all information for a single company
+
+**Objective**: After successfully scraping a list of companies, the next step is to delve deeper and extract detailed information for each individual company. This task will guide you through creating a function to scrape detailed company information from **`annualreport.com`**.
+
+### Step 1: Identify the Data
+
+Before diving into the function, visit a specific company's page on [**https://www.annualreports.com**](https://www.annualreports.com/). Familiarize yourself with the layout and the various pieces of information available, such as the company name, ticker name, exchange name, number of employees, location, description, website, and social media links.
+
+### Step 2: Write the `get_company_info` Function
+
+Your task is to write a function named **`get_company_info`** that will retrieve detailed information about a company.
+
+**Input**:
+
+-   **`.html`**: A node object containing the HTML content of a company's page. This object can be obtained using the **`read_html`** function from the **`rvest`** package.
+
+**Output**: A dataframe with the following columns:
+
+-   **`vendor_name`**: The name of the company.
+
+-   **`ticker_name`**: The ticker symbol of the company.
+
+-   **`exchange_name`**: The stock exchange where the company is listed.
+
+-   **`employees`**: The number of employees in the company.
+
+-   **`location`**: The location or headquarters of the company.
+
+-   **`description`**: A brief description of the company.
+
+-   **`company_website`**: The official website of the company.
+
+-   **`facebook`**: The company's Facebook page link (if available).
+
+-   **`youtube`**: The company's YouTube channel link (if available).
+
+-   **`linkedin`**: The company's LinkedIn profile link (if available).
+
+-   **`twitter`**: The company's Twitter handle link (if available).
+
+```{r}
+get_company_info <- function(.html) {
+  # YOUR CODE HERE
+}
+```
+
+### Step 3: Test the Function
+
+After writing the function, test it by passing the HTML content of a specific company's page to ensure it works correctly. For instance, you can retrieve the details of a company using:
+
+```{r}
+company_details <- get_company_info(read_raw_html(tab_log_companies$path[1]))
+company_details
+```
+
+### Step 4: Review the Results
+
+Examine the **`company_details`** dataframe to ensure the data has been scraped correctly. Check if all the details like company name, ticker name, exchange name, etc., are correctly populated.
+
+## Task 4: Scrape the Annual Reports Links
+
+**Objective**: After extracting detailed information about individual companies, the next logical step is to gather their annual reports. This task will guide you through creating a function to scrape links to the annual reports of companies from **`annualreport.com`**.
+
+### Step 1: Identify the Data
+
+Before diving into the function, visit a specific company's page on [**https://www.annualreports.com**](https://www.annualreports.com/). Familiarize yourself with the section that contains links to the company's annual reports. Notice the structure and patterns of the data, such as the year of the report and the download link.
+
+### Step 2: Write the `get_company_reports` Function
+
+Your task is to write a function named **`get_company_reports`** that will retrieve links to the annual reports of a company.
+
+**Input**:
+
+-   **`.html`**: A node object containing the HTML content of a company's page. This object can be obtained using the **`read_html`** function from the **`rvest`** package.
+
+**Output**: A dataframe with the following columns:
+
+-   **`heading`**: The title or heading of the annual report (e.g., "2022 Annual Report").
+
+-   **`year`**: The year of the annual report.
+
+-   **`report_link`**: The direct link to download the annual report.
+
+```{r}
+get_company_reports <- function(.html) {
+  # YOUR CODE HERE
+}
+```
+
+### Step 3: Test the Function
+
+After writing the function, test it by passing the HTML content of a specific company's page to ensure it works correctly. For instance, you can retrieve the links to the annual reports of a company using:
+
+```{r}
+report_links <- get_company_reports(read_raw_html(tab_log_companies$path[1]))
+report_links
+```
+
+### Step 4: Review the Results
+
+Examine the **`report_links`** dataframe to ensure the data has been scraped correctly. Check if all the details like the heading, year, and report link are correctly populated.
+
+## Get Company Information and Report Links
+
+In this section, you're using the previously defined functions to extract detailed information about each company and the links to their annual reports.
+
+**Explanation**:
+
+1.  **`purrr::map`**: This function applies the **`get_company_info`** function to each path in **`tab_log_companies$path`**. The **`~`** symbol is used to define a formula where **`.x`** represents each individual path.
+
+2.  **`read_raw_html(.x)`**: For each path, the HTML content is read and passed to the **`get_company_info`** function.
+
+3.  **`dplyr::bind_rows`**: After extracting the information for each company, the results are combined into a single dataframe.
+
+```{r}
+tab_companies_info <- purrr::map(tab_log_companies$path, ~ get_company_info(read_raw_html(.x)), .progress = TRUE)
+tab_companies_info <- dplyr::bind_rows(tab_companies_info)
+tab_companies_info
+```
+
+**Explanation**:
+
+-   This is similar to the previous block but focuses on extracting the annual report links for each company.
+
+```{r}
+tab_company_reports <- purrr::map(tab_log_companies$path, ~ get_company_reports(read_raw_html(.x)), .progress = TRUE)
+tab_company_reports <- dplyr::bind_rows(tab_company_reports)
+tab_company_reports
+```
+
+## Download the Annual Reports
+
+**Explanation**:
+
+-   This function, **`download_pdf`**, is designed to download a PDF from a given URL and save it to a specified directory.
+
+-   It first checks if the file already exists in the directory. If it does, the function returns a message and doesn't download the file again.
+
+-   If the file doesn't exist, the function attempts to download the PDF. If the download is successful, details about the download (like the start time and duration) are logged in a tibble.
+
+-   If there's an error during the download (e.g., the URL doesn't point to a PDF), the error is caught and logged.
+
+-   The function also writes a log to a CSV file, which can be useful for tracking and debugging.
+
+```{r}
+download_pdf <- function(.url, .dir, .wait = 1) {
+  # Create the directory if it doesn't exist
+  dir_ <- fs::dir_create(.dir, "pdf")
+  
+  # Extract the filename from the URL
+  id_ <- basename(.url)
+  fil_ <- file.path(dir_, id_)
+  
+  # Check if the file already exists
+  if (file.exists(fil_)) {
+    return(NULL)
+  }
+  
+  # Create a log tibble
+  tab_log_ <- tibble::tibble(
+    file_id = id_,
+    file_link = .url,
+    path = fil_,
+    err = FALSE,
+    err_msg = NA_character_,
+    start_time = NA_real_,
+    time = NA_real_
+  )
+  
+  # Try to download the PDF
+  tryCatch(
+    {
+      start_time_ <- Sys.time()
+      response <- httr::GET(.url, httr::write_disk(fil_, overwrite = TRUE))
+      
+      # Check if the response content type is a PDF
+      if (httr::http_type(response) != "application/pdf") {
+        stop("The URL does not point to a PDF.")
+      }
+      
+      end_time_ <- Sys.time()
+      Sys.sleep(.wait)
+      tab_log_ <- tab_log_ %>%
+        dplyr::mutate(
+          start_time = start_time_,
+          time = difftime(end_time_, start_time_, units = "secs")
+        )
+    },
+    error = function(e) {
+      tab_log_ <- dplyr::mutate(tab_log_, err = TRUE, err_msg = e$message)
+      return(tab_log_)
+    }
+  )
+  
+  # Write the log to a CSV file
+  log_file <- file.path(.dir, "log.csv")
+  if (!file.exists(log_file)) {
+    readr::write_delim(tab_log_, log_file, "|", na = "")
+  } else {
+    readr::write_delim(tab_log_, log_file, "|", na = "", append = TRUE)
+  }
+}
+```
+
+Download the first 100 reports
+
+```{r}
+purrr::walk(tab_company_reports$report_link[1:100], ~ download_pdf(.x, "day2/pdfs"), .progress = TRUE)
+```
+
+**Explanation**:
+
+-   **`purrr::walk`** is used to apply the **`download_pdf`** function to the first 100 report links in **`tab_company_reports`**.
+
+-   Each report link is passed as **`.x`** to the **`download_pdf`** function, which then attempts to download the PDF and save it to the "day2/pdfs" directory.
+
+-   The **`.progress = TRUE`** argument provides a progress bar, which is helpful when downloading multiple files.
+
+# Webscraping with API
+
+**Task 1: Generate a Function to Download the SEC Master Index**
+
+1.  Navigate to the [**SEC EDGAR API documentation**](https://www.sec.gov/edgar/sec-api-documentation).
+
+2.  Ask your AI assistant to help you write a function in R that downloads the SEC master index for a specific year and quarter based on the API FAQ.
+
+3.  Test the function by downloading the master index for a year and quarter of your choice.
+
+
+
+```{r}
+download_sec_master_index <- function(.year, .quarter, .dir) {
+  # YOUR CODE HERE
+
+}
+```
+
+**Task 2: Inspect and Parse the Downloaded File**
+
+1.  Open the downloaded master index file and inspect its contents. Identify the structure and the data it contains.
+
+2.  Copy a small section (about 10-15 lines) of the master index.
+
+3.  Ask your AI assistant to parse the copied section into a dataframe in R.
+
+4.  Inspect the dataframe to ensure the data has been parsed correctly.
+```{r}
+read_master_idx <- function(.path) {
+  # YOUR CODE HERE
+}
+```
+
+**Task 3: Download a Full Submission Text File**
+
+1.  From the parsed dataframe in Task 2, identify a CIK (Central Index Key) and its associated year number for any company.
+
+2.  Ask your AI assistant to help you write a function in R that downloads a full submission 10-K text file using the CIK and year ( to filter that dataframe) and downloads the full submission text file.
+
+3.  Test the function by downloading the full submission text file for the identified company.
+
+```{r}
+download_full_submision_file <- function(.tab, .cik, .year, .dir) {
+  # YOUR CODE HERE
+}
+```
+
+
+**Conclusion:**
+
+In this exercise, you've learned how to leverage the capabilities of an AI assistant to interact with the SEC EDGAR database. By combining the power of AI with programming, you can efficiently access, parse, and analyze vast amounts of financial data. This approach not only simplifies the data extraction process but also opens up opportunities for more advanced financial analyses.
+
+**Bonus Challenge:**
+
+1.  Ask your AI assistant to help you extract specific sections (e.g., "Item 1A. Risk Factors") from the downloaded submission text files.
+
+```{r}
+extract_section <- function(.path, .section = "Item 1A. Risk Factors") {
+  # Your Code Here
+}
+```
